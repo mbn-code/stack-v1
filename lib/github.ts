@@ -18,20 +18,22 @@ let rateLimitHit = false;
 /**
  * Executes a GitHub API call with automatic retry on secondary rate limits.
  */
-async function withRetry<T>(fn: () => Promise<T>, retries = 3, delay = 2000): Promise<T> {
+async function withRetry<T>(fn: () => Promise<T>, retries = 3, delay = 3000): Promise<T> {
   try {
     return await fn();
   } catch (error: any) {
-    const isRateLimit = error.status === 403 || error.message.includes('SecondaryRateLimit') || error.status === 429;
+    const isSecondaryLimit = error.message.includes('SecondaryRateLimit');
+    const isRateLimit = error.status === 403 || isSecondaryLimit || error.status === 429;
     
     if (retries > 0 && isRateLimit) {
-      // Respect GitHub's retry-after header if present, otherwise use exponential backoff
+      // For secondary rate limits, we should be much more aggressive with the wait
+      const baseDelay = isSecondaryLimit ? 5000 : delay;
       const retryAfter = parseInt(error.response?.headers?.['retry-after'] || '0') * 1000;
-      const waitTime = retryAfter > 0 ? retryAfter : delay;
+      const waitTime = retryAfter > 0 ? retryAfter : baseDelay;
       
       console.warn(`⚠️ GitHub Rate Limit hit. Waiting ${waitTime}ms... (${retries} left)`);
       await new Promise(resolve => setTimeout(resolve, waitTime));
-      return withRetry(fn, retries - 1, delay * 2);
+      return withRetry(fn, retries - 1, baseDelay * 2);
     }
     throw error;
   }
