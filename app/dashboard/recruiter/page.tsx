@@ -57,6 +57,9 @@ export default function RecruiterDashboard() {
   }, [jobs]);
 
   const searchCandidates = async (isNewSearch = true) => {
+    // Prevent overlapping searches
+    if (isSearching) return;
+
     const currentQuery = (searchTerm.trim() || location.trim() || language.trim());
     if (!currentQuery && isNewSearch) {
       loadInitialTalent();
@@ -75,15 +78,23 @@ export default function RecruiterDashboard() {
           setCandidates(data);
           setPage(1);
         } else {
-          setCandidates(prev => [...prev, ...data]);
+          // Deduplicate based on handle
+          setCandidates(prev => {
+            const handles = new Set(prev.map(c => c.handle));
+            const uniqueNew = data.filter(c => !handles.has(c.handle));
+            return [...prev, ...uniqueNew];
+          });
           setPage(currentPage);
         }
-        setHasMore(data.length === 10); // Assuming per_page is 10
+        setHasMore(data.length === 10);
+      } else {
+        if (!isNewSearch) setHasMore(false); // Stop trying if we hit an error on scroll
       }
     } catch (err) {
       console.error(err);
     } finally {
-      setIsSearching(false);
+      // Small artificial delay to prevent scroll "bounce" re-triggering
+      setTimeout(() => setIsSearching(false), 500);
     }
   };
 

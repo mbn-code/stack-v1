@@ -22,9 +22,15 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 3, delay = 2000): Pr
   try {
     return await fn();
   } catch (error: any) {
-    if (retries > 0 && (error.status === 403 || error.message.includes('SecondaryRateLimit'))) {
-      console.warn(`⚠️ GitHub Secondary Rate Limit hit. Retrying in ${delay}ms... (${retries} left)`);
-      await new Promise(resolve => setTimeout(resolve, delay));
+    const isRateLimit = error.status === 403 || error.message.includes('SecondaryRateLimit') || error.status === 429;
+    
+    if (retries > 0 && isRateLimit) {
+      // Respect GitHub's retry-after header if present, otherwise use exponential backoff
+      const retryAfter = parseInt(error.response?.headers?.['retry-after'] || '0') * 1000;
+      const waitTime = retryAfter > 0 ? retryAfter : delay;
+      
+      console.warn(`⚠️ GitHub Rate Limit hit. Waiting ${waitTime}ms... (${retries} left)`);
+      await new Promise(resolve => setTimeout(resolve, waitTime));
       return withRetry(fn, retries - 1, delay * 2);
     }
     throw error;
