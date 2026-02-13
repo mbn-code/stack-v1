@@ -14,11 +14,25 @@ export default function RecruiterDashboard() {
   const jobs = useRealtimeJobs([]);
 
   const searchCandidates = async () => {
-    // In a real app, this would hit /api/candidates with filters
-    const res = await fetch(`/api/candidates?q=${searchTerm}&loc=${location}&lang=${language}`);
-    const data = await res.json();
-    setCandidates(data);
+    try {
+      const res = await fetch(`/api/candidates?q=${searchTerm}&loc=${location}&lang=${language}`);
+      const data = await res.json();
+      
+      if (Array.isArray(data)) {
+        setCandidates(data);
+      } else {
+        console.error('API did not return an array:', data);
+        setCandidates([]);
+      }
+    } catch (err) {
+      console.error('Failed to search candidates:', err);
+      setCandidates([]);
+    }
   };
+
+  useEffect(() => {
+    searchCandidates();
+  }, []);
 
   const handleAnalyze = async (handle: string, repo: string) => {
     await fetch('/api/jobs', {
