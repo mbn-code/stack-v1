@@ -56,8 +56,13 @@ export default async function handler(
     }
 
     // 5. Create new job or return pending one
-    // Note: requestedBy should come from auth session, using a placeholder for now
-    const requestedBy = '00000000-0000-0000-0000-000000000000'; 
+    // Note: requestedBy should come from auth session
+    // For this demo, ensure a system user exists
+    const systemUser = await prisma.user.upsert({
+      where: { email: 'system@stack.v1' },
+      update: {},
+      create: { email: 'system@stack.v1', role: 'RECRUITER' },
+    });
 
     const job = await prisma.analysisJob.upsert({
       where: {
@@ -74,7 +79,7 @@ export default async function handler(
         repositoryUrl,
         headSha,
         signalVersion,
-        requestedBy,
+        requestedById: systemUser.id,
         status: 'PENDING',
       },
     });
