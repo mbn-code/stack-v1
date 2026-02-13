@@ -8,7 +8,6 @@ import * as net from 'net';
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
 const DB_URL = process.env.DATABASE_URL || '';
-const API_URL = 'http://localhost:3000/api/health';
 
 /**
  * Validates the database connection before proceeding.
@@ -89,16 +88,21 @@ async function validateEnvironment() {
   let attempts = 0;
   const maxAttempts = 12; // 60 seconds total
 
+  // Check both 3000 and 3001 since Next.js might fallback
+  const urls = ['http://localhost:3000/api/health', 'http://localhost:3001/api/health'];
+
   while (attempts < maxAttempts) {
-    try {
-      const res = await fetch(API_URL);
-      if (res.ok) {
-        const data = await res.json();
-        console.log('✨ System validation successful:', data);
-        return;
+    for (const url of urls) {
+      try {
+        const res = await fetch(url);
+        if (res.ok) {
+          const data = await res.json();
+          console.log(`✨ System validation successful at ${url}:`, data);
+          return url.replace('/api/health', '/dashboard');
+        }
+      } catch (e) {
+        // API not ready yet
       }
-    } catch (e) {
-      // API not ready yet
     }
     attempts++;
     await new Promise(r => setTimeout(r, 5000));
@@ -110,6 +114,9 @@ async function validateEnvironment() {
 async function boot() {
   console.log('🚀 Stack V1 Dev Boot Sequence Initiated\n');
 
+  const hasToken = !!(process.env.GITHUB_TOKEN || process.env.GITHUB_ACCESS_TOKEN);
+  console.log(`🔑 GitHub Authentication: ${hasToken ? 'ACTIVE (Authenticated)' : 'MISSING (Unauthenticated)'}`);
+
   try {
     // 1. Connection Check
     await checkDatabase();
@@ -118,17 +125,14 @@ async function boot() {
     await initDatabase();
 
     // 3. Start Services
-    // We use 'tsx' to run the worker script directly
     const worker = startProcess('npx', ['tsx', 'scripts/start-worker.ts'], 'Worker');
-    
-    // We start Next.js dev server
     const next = startProcess('npm', ['run', 'dev'], 'Next.js');
 
     // 4. Self-Validation
-    await validateEnvironment();
+    const dashboardUrl = await validateEnvironment();
 
     console.log('\n✅ Stack V1 is fully operational!');
-    console.log('👉 Dashboard: http://localhost:3000/dashboard');
+    console.log(`👉 Dashboard: ${dashboardUrl}`);
     console.log('💡 Press Ctrl+C to stop all services.');
 
     // Keep the script running

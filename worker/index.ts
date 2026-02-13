@@ -60,7 +60,14 @@ async function processJob(job: any) {
     
     // Step 1: Blobless Clone
     // We only fetch commit metadata to save bandwidth, downloading file contents on-demand during blame.
-    await runGit(['clone', '--filter=blob:none', '--no-checkout', job.repositoryUrl, '.'], jobDir);
+    const token = process.env.GITHUB_TOKEN || process.env.GITHUB_ACCESS_TOKEN;
+    let cloneUrl = job.repositoryUrl;
+    
+    if (token && cloneUrl.includes('github.com')) {
+      cloneUrl = cloneUrl.replace('https://github.com/', `https://x-access-token:${token}@github.com/`);
+    }
+
+    await runGit(['clone', '--filter=blob:none', '--no-checkout', cloneUrl, '.'], jobDir);
     
     await prisma.analysisJob.update({
       where: { id: job.id },

@@ -17,8 +17,8 @@ async function setup() {
   }
 
   // 2. Validate GITHUB_TOKEN
-  if (!process.env.GITHUB_TOKEN) {
-    console.warn('⚠️  Warning: GITHUB_TOKEN is missing in .env. Private repo analysis will fail.');
+  if (!process.env.GITHUB_TOKEN && !process.env.GITHUB_ACCESS_TOKEN) {
+    console.warn('⚠️  Warning: GITHUB_TOKEN or GITHUB_ACCESS_TOKEN is missing in .env. API rate limits will be restricted and private repos will fail.');
   }
 
   // 3. Run Prisma DB Push
