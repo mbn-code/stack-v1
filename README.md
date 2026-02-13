@@ -1,36 +1,64 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Stack V1 - Engineering Reliability Intelligence
 
-## Getting Started
+Stack provides engineering leaders with a high-fidelity hiring signal based on the durability of code contributions. It measures the **Code Survival Rate (CSR)**: the percentage of an engineer's code that remains in the codebase 90 days after it was written.
 
-First, run the development server:
+## 🚀 Quick Start
 
+### 1. Environment Setup
+Clone the repository and install dependencies:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Create a `.env` file in the root directory:
+```env
+DATABASE_URL="postgresql://user:password@localhost:5432/stack_v1?schema=public"
+NEXT_PUBLIC_SUPABASE_URL="your-supabase-url"
+NEXT_PUBLIC_SUPABASE_ANON_KEY="your-supabase-anon-key"
+GITHUB_TOKEN="your-personal-access-token"
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Initialize the database:
+```bash
+npx tsx scripts/setup.ts
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 2. Run the Application
+Start the Next.js development server:
+```bash
+npm run dev
+```
 
-## Learn More
+In a separate terminal, start the background worker:
+```bash
+npx tsx scripts/start-worker.ts
+```
 
-To learn more about Next.js, take a look at the following resources:
+### 3. Analyze a Candidate
+You can submit a job via the **Dashboard** at `http://localhost:3000/dashboard` or use the CLI script:
+```bash
+npx tsx scripts/submit-job.ts <github_handle> <repository_url>
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🛠 Architecture
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **Next.js (App Router):** Modern frontend and API orchestration.
+- **Supabase Postgres:** Central state machine and real-time updates.
+- **Node.js Worker:** Persistent background process for heavy Git operations.
+- **Git CLI:** Utilizes "blobless" clones and incremental blame for performance.
+- **Prisma:** Type-safe database client and schema management.
 
-## Deploy on Vercel
+## 🚢 Deployment
+For production deployment instructions using Docker and Scaling strategies, see [DEPLOYMENT.md](./DEPLOYMENT.md).
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 🧪 Testing
+Run the test suite:
+```bash
+npm test
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 🛡 Security
+- **Identity Resolution:** Maps commits across multiple emails using immutable GitHub `databaseId`.
+- **Noise Filtering:** Automatically excludes documentation, dotfiles, lockfiles, and bot activity.
+- **Job Claiming:** Uses atomic `SELECT FOR UPDATE SKIP LOCKED` to prevent race conditions.
+- **Cleanup:** Ephemeral Git clones are purged immediately after analysis.

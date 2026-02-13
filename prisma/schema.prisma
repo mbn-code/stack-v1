@@ -1,0 +1,73 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum JobStatus {
+  PENDING
+  CLONING
+  ANALYZING
+  COMPLETED
+  FAILED
+}
+
+model Candidate {
+  id        String           @id @default(uuid()) @db.Uuid
+  githubId  BigInt           @unique
+  handle    String
+  emails    CandidateEmail[]
+  jobs      AnalysisJob[]
+  reports   CsrReport[]
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  @@map("candidates")
+}
+
+model CandidateEmail {
+  id          String    @id @default(uuid()) @db.Uuid
+  email       String    @unique
+  candidateId String    @db.Uuid @map("candidate_id")
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@map("candidate_emails")
+}
+
+model AnalysisJob {
+  id            String     @id @default(uuid()) @db.Uuid
+  candidateId   String     @db.Uuid @map("candidate_id")
+  candidate     Candidate  @relation(fields: [candidateId], references: [id])
+  repositoryUrl String     @map("repository_url")
+  status        JobStatus  @default(PENDING)
+  headSha       String?    @map("head_sha")
+  signalVersion String     @map("signal_version")
+  errorMessage  String?    @map("error_message")
+  requestedBy   String     @db.Uuid @map("requested_by")
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+  report        CsrReport?
+
+  @@unique([candidateId, repositoryUrl, headSha, signalVersion])
+  @@index([status, createdAt])
+  @@map("analysis_jobs")
+}
+
+model CsrReport {
+  id             String    @id @default(uuid()) @db.Uuid
+  jobId          String    @unique @db.Uuid @map("job_id")
+  job            AnalysisJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  candidateId    String    @db.Uuid @map("candidate_id")
+  candidate      Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  linesOriginal  Int       @map("lines_original")
+  linesSurviving Int       @map("lines_surviving")
+  csrPercentage  Decimal   @db.Decimal(5, 2) @map("csr_percentage")
+  calculatedAt   DateTime  @default(now()) @map("calculated_at")
+
+  @@map("csr_reports")
+}
