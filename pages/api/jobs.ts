@@ -20,19 +20,19 @@ export default async function handler(
     const { candidateHandle, repositoryUrl } = submitJobSchema.parse(req.body);
     const signalVersion = '1.0.0';
 
-    // 1. Get Candidate Info
+    // 1. Get Candidate Info (Uses DB Cache first)
     const { githubId, handle } = await getGitHubUserInfo(candidateHandle);
     
     // 2. Get Repository Info (for idempotency check with headSha)
     const repoInfo = await getRepoInfo(repositoryUrl);
     const headSha = await getLatestCommitSha(repoInfo.owner, repoInfo.repo, repoInfo.defaultBranch);
 
-    // 3. Upsert Candidate
-    const candidate = await prisma.candidate.upsert({
+    // 3. Find the candidate in DB (they are guaranteed to exist now because of getGitHubUserInfo)
+    const candidate = await prisma.candidate.findUnique({
       where: { githubId },
-      update: { handle },
-      create: { githubId, handle },
     });
+
+    if (!candidate) throw new Error('Candidate sync failed');
 
     // 4. Check for existing completed job (Idempotency)
     const existingJob = await prisma.analysisJob.findUnique({

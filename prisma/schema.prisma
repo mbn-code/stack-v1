@@ -37,6 +37,8 @@ model Candidate {
   id        String           @id @default(uuid()) @db.Uuid
   githubId  BigInt           @unique
   handle    String
+  avatarUrl String?          @map("avatar_url")
+  bio       String?
   location  String?          // New: for filtering
   languages String[]         // New: for filtering
   emails    CandidateEmail[]

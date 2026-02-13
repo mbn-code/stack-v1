@@ -13,6 +13,8 @@ export default function RecruiterDashboard() {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [reports, setReports] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
   const [analyzingHandles, setAnalyzingHandles] = useState<Set<string>>(new Set());
   
   const jobs = useRealtimeJobs([]);
@@ -27,21 +29,70 @@ export default function RecruiterDashboard() {
     }
   };
 
+  // Initial load: Fetch reports and show "Top Talent"
   useEffect(() => {
     fetchReports();
-  }, [jobs]);
+    loadInitialTalent();
+  }, []);
 
-  const searchCandidates = async () => {
-    if (!searchTerm.trim() && !location.trim() && !language.trim()) return;
+  const loadInitialTalent = async () => {
     setIsSearching(true);
     try {
-      const res = await fetch(`/api/candidates?q=${searchTerm}&loc=${location}&lang=${language}`);
+      // Fetch already analyzed candidates first
+      const res = await fetch('/api/candidates?q=type:user&limit=10');
       const data = await res.json();
-      if (res.ok && Array.isArray(data)) setCandidates(data);
+      if (Array.isArray(data)) {
+        setCandidates(data);
+        setPage(1);
+      }
     } catch (err) {
       console.error(err);
     } finally {
       setIsSearching(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchReports();
+  }, [jobs]);
+
+  const searchCandidates = async (isNewSearch = true) => {
+    const currentQuery = (searchTerm.trim() || location.trim() || language.trim());
+    if (!currentQuery && isNewSearch) {
+      loadInitialTalent();
+      return;
+    }
+
+    setIsSearching(true);
+    const currentPage = isNewSearch ? 1 : page + 1;
+    
+    try {
+      const res = await fetch(`/api/candidates?q=${searchTerm}&loc=${location}&lang=${language}&page=${currentPage}`);
+      const data = await res.json();
+      
+      if (res.ok && Array.isArray(data)) {
+        if (isNewSearch) {
+          setCandidates(data);
+          setPage(1);
+        } else {
+          setCandidates(prev => [...prev, ...data]);
+          setPage(currentPage);
+        }
+        setHasMore(data.length === 10); // Assuming per_page is 10
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Infinite Scroll Handler
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    // Load more when user is 100px from the bottom
+    if (scrollHeight - scrollTop <= clientHeight + 100 && !isSearching && hasMore) {
+      searchCandidates(false);
     }
   };
 
@@ -137,7 +188,10 @@ export default function RecruiterDashboard() {
         </header>
 
         {/* Scrollable Results Area */}
-        <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+        <div 
+          className="flex-1 overflow-y-auto p-8 custom-scrollbar"
+          onScroll={handleScroll}
+        >
           <div className="max-w-4xl mx-auto space-y-8">
             
             {/* Results Grid */}
@@ -146,7 +200,7 @@ export default function RecruiterDashboard() {
                 const analysis = getCandidateAnalysis(c.handle);
                 return (
                   <CandidateCard 
-                    key={c.id}
+                    key={`${c.id}-${c.handle}`}
                     candidate={c}
                     onAnalyze={handleBulkAnalyze}
                     isAnalyzing={analyzingHandles.has(c.handle)}
@@ -154,6 +208,12 @@ export default function RecruiterDashboard() {
                   />
                 );
               })}
+
+              {!isSearching && candidates.length > 0 && hasMore && (
+                <div className="flex justify-center py-4">
+                  <Loader2 className="h-6 w-6 text-slate-300 animate-spin" />
+                </div>
+              )}
 
               {candidates.length === 0 && !isSearching && (
                 <div className="flex flex-col items-center justify-center py-32 bg-white rounded-3xl border border-dashed border-slate-300">

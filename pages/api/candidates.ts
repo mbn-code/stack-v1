@@ -5,13 +5,14 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  const { q, loc, lang } = req.query;
+  const { q, loc, lang, page } = req.query;
 
   try {
     const candidates = await searchGitHubUsers(
       q as string, 
       loc as string, 
-      lang as string
+      lang as string,
+      page ? parseInt(page as string) : 1
     );
 
     return res.status(200).json(candidates);
